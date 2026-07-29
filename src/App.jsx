@@ -4,18 +4,9 @@ import { ref, onValue, update, query, limitToLast, increment } from "firebase/da
 // Import komponen grafik untuk tren real-time
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Login from './Login';
-import { supabase } from './lib/supabaseClient';
 
-// Ambil nama/jabatan dari user_metadata Supabase Auth (diisi admin lewat Dashboard saat
-// membuat akun). Kalau belum diisi, fallback ke email supaya tetap ada yang ditampilkan.
-function toUser(session) {
-  const meta = session.user.user_metadata || {};
-  return {
-    email: session.user.email,
-    nama: meta.nama || session.user.email,
-    jabatan: meta.jabatan || 'Karyawan',
-  };
-}
+const AUTH_STORAGE_KEY = 'wtm_auth';
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 jam
 
 function Dashboard({ user, onLogout, showLoginToast, onLoginToastShown }) {
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -504,31 +495,40 @@ function Dashboard({ user, onLogout, showLoginToast, onLoginToastShown }) {
   );
 }
 
-// Gerbang autentikasi: pakai sesi Supabase Auth. onAuthStateChange menjaga status login
-// tetap sinkron (termasuk kalau sesi kedaluwarsa/logout dari tab lain), tanpa localStorage
-// atau token custom - Supabase yang menyimpan & mengelola sesinya sendiri.
+// Gerbang autentikasi: verifikasi username/password dilakukan di database (fungsi
+// login_karyawan), lalu status login disimpan di localStorage dengan expiry 8 jam.
+// Catatan: ini BUKAN sesi bertoken seperti Supabase Auth - cuma penanda "sudah login"
+// yang kita percaya sendiri di sisi client, kedaluwarsa otomatis lewat pengecekan waktu.
 function App() {
   const [authState, setAuthState] = useState({ status: 'checking', user: null }); // 'checking' | 'authed' | 'guest'
   const [justLoggedIn, setJustLoggedIn] = useState(false); // true hanya kalau baru submit form login, bukan pas restore sesi
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthState(session ? { status: 'authed', user: toUser(session) } : { status: 'guest', user: null });
-    });
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!stored) {
+      setAuthState({ status: 'guest', user: null });
+      return;
+    }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthState(session ? { status: 'authed', user: toUser(session) } : { status: 'guest', user: null });
-    });
-
-    return () => subscription.unsubscribe();
+    const { user, loggedInAt } = JSON.parse(stored);
+    if (Date.now() - loggedInAt > SESSION_TTL_MS) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setAuthState({ status: 'guest', user: null });
+    } else {
+      setAuthState({ status: 'authed', user });
+    }
   }, []);
 
-  const handleLoginSuccess = () => {
-    setJustLoggedIn(true); // authState sudah ikut ter-update lewat onAuthStateChange di atas
+  const handleLoginSuccess = (karyawan) => {
+    const user = { nama: karyawan.nama, jabatan: karyawan.jabatan, username: karyawan.username };
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user, loggedInAt: Date.now() }));
+    setAuthState({ status: 'authed', user });
+    setJustLoggedIn(true);
   };
 
   const handleLogout = () => {
-    supabase.auth.signOut();
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setAuthState({ status: 'guest', user: null });
   };
 
   if (authState.status === 'checking') {

@@ -10,7 +10,7 @@ const colors = {
 const EXIT_ANIM_MS = 500; // samakan dengan duration-500 di className card login
 
 export default function Login({ onLoginSuccess }) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,16 +27,21 @@ export default function Login({ onLoginSuccess }) {
     setError('');
     setLoading(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    // Verifikasi username+password dilakukan di dalam database (fungsi login_karyawan),
+    // bukan di browser - password_hash tabel karyawan tidak pernah dikirim ke client.
+    const { data, error: rpcError } = await supabase.rpc('login_karyawan', {
+      p_username: username.trim(),
+      p_password: password,
+    });
 
-    if (signInError) {
-      setError('Email atau password salah');
+    if (rpcError || !data || data.length === 0) {
+      setError('Username atau password salah');
       setLoading(false);
       return;
     }
 
     setExiting(true); // mulai fade-out card login
-    setTimeout(onLoginSuccess, EXIT_ANIM_MS); // baru pindah ke dashboard setelah animasi selesai
+    setTimeout(() => onLoginSuccess(data[0]), EXIT_ANIM_MS); // baru pindah ke dashboard setelah animasi selesai
   };
 
   return (
@@ -59,12 +64,12 @@ export default function Login({ onLoginSuccess }) {
         )}
 
         <div className="mb-5">
-          <label className="font-bold block mb-2 text-slate-400 text-xs uppercase tracking-widest">Email</label>
+          <label className="font-bold block mb-2 text-slate-400 text-xs uppercase tracking-widest">Username</label>
           <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
             required
             className="w-full p-5 rounded-[24px] border-none bg-white shadow-inner font-bold text-lg outline-none"
           />
