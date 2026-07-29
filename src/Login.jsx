@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { login } from './lib/authApi';
+import { supabase } from './lib/supabaseClient';
 
 const colors = {
   biru: '#1f98ae',
@@ -10,7 +10,7 @@ const colors = {
 const EXIT_ANIM_MS = 500; // samakan dengan duration-500 di className card login
 
 export default function Login({ onLoginSuccess }) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,14 +26,17 @@ export default function Login({ onLoginSuccess }) {
     e.preventDefault();
     setError('');
     setLoading(true);
-    try {
-      const result = await login(username, password);
-      setExiting(true); // mulai fade-out card login
-      setTimeout(() => onLoginSuccess(result), EXIT_ANIM_MS); // baru pindah ke dashboard setelah animasi selesai
-    } catch (err) {
-      setError(err.message || 'Username atau password salah');
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (signInError) {
+      setError('Email atau password salah');
       setLoading(false);
+      return;
     }
+
+    setExiting(true); // mulai fade-out card login
+    setTimeout(onLoginSuccess, EXIT_ANIM_MS); // baru pindah ke dashboard setelah animasi selesai
   };
 
   return (
@@ -56,12 +59,12 @@ export default function Login({ onLoginSuccess }) {
         )}
 
         <div className="mb-5">
-          <label className="font-bold block mb-2 text-slate-400 text-xs uppercase tracking-widest">Username</label>
+          <label className="font-bold block mb-2 text-slate-400 text-xs uppercase tracking-widest">Email</label>
           <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
             required
             className="w-full p-5 rounded-[24px] border-none bg-white shadow-inner font-bold text-lg outline-none"
           />
