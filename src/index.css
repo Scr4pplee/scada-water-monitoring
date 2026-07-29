@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@tailwind components;
+@tailwind utilities;
+
+@keyframes wave {
+  0% { transform: translateX(-50%) skewY(-2deg); }
+  50% { transform: translateX(-50%) skewY(2deg); }
+  100% { transform: translateX(-50%) skewY(-2deg); }
+}
+
+.water-wave {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 200%;
+  height: 20px;
+  background: inherit;
+  border-radius: 40%;
+  animation: wave 3s infinite linear;
+}

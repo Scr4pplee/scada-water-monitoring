@@ -1,0 +1,15 @@
+{
+  "device_01": {
+    "sensors": {
+      "ultrasonic_1": 0,
+      "ultrasonic_2": 0,
+      "pressure_val": 0
+    },
+    "control": {
+      "pump_status": "OFF",
+      "control_mode": "Manual",
+      "tank_height": 100,
+      "threshold": 30
+    }
+  }
+}
